@@ -1,94 +1,81 @@
 <!doctype html>
-<html lang="de">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#070b10">
-<title>Nachtzug</title>
+<html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#070b10"><title>Nachtzug</title>
 <style>
-:root{color-scheme:dark}*{box-sizing:border-box}body{margin:0;min-height:100vh;background:radial-gradient(circle at 50% 20%,#182331,#070b10 58%);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#eef3f7;display:flex;justify-content:center}
-main{width:min(680px,100%);padding:calc(34px + env(safe-area-inset-top)) 22px calc(32px + env(safe-area-inset-bottom));text-align:center}
-h1{font-size:42px;margin:12px 0 5px;letter-spacing:.02em} .sub{opacity:.65;margin-bottom:34px}
+:root{color-scheme:dark}*{box-sizing:border-box}body{margin:0;min-height:100vh;background:radial-gradient(circle at 50% 18%,#172331,#070b10 58%);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#eef3f7;display:flex;justify-content:center}
+main{width:min(680px,100%);padding:calc(35px + env(safe-area-inset-top)) 22px 35px;text-align:center}h1{font-size:42px;margin:10px 0 4px}.sub{opacity:.65;margin-bottom:34px}
 .card{background:#101821cc;border:1px solid #263444;border-radius:24px;padding:24px;box-shadow:0 18px 60px #0008}
-button{width:100%;border:0;border-radius:18px;padding:18px;font-size:20px;font-weight:700;background:#d9e6ee;color:#071018;margin:6px 0 18px}
-button.stop{background:#263442;color:#eef3f7}.row{text-align:left;margin:19px 0}.row label{display:flex;justify-content:space-between;font-size:15px;margin-bottom:8px;color:#cdd7de}
-input[type=range]{width:100%}.status{min-height:48px;font-size:14px;line-height:1.45;color:#9fb0bd;margin-top:12px}
-.small{font-size:12px;color:#758692;line-height:1.5;margin-top:22px}
-</style>
-</head>
-<body><main>
-<h1>🚆 Nachtzug</h1>
-<div class="sub">Jede Nacht eine andere Fahrt.</div>
-<div class="card">
-<button id="start">NACHTFAHRT STARTEN</button>
-<button id="stop" class="stop" hidden>FAHRT BEENDEN</button>
-<div class="row"><label><span>Lautstärke</span><span id="vtxt">55%</span></label><input id="vol" type="range" min="0" max="100" value="55"></div>
-<div class="row"><label><span>Schienen &amp; Wagen</span><span id="mtxt">Ruhig</span></label><input id="mood" type="range" min="0" max="100" value="45"></div>
-<div id="status" class="status">Tippe auf Start. Die Fahrt wird bei jedem Start neu zusammengestellt.</div>
-</div>
-<div class="small">Echte CC0-Zugaufnahmen · keine Ansagen · keine künstlichen Klack-Synthesizer.<br>Fürs Einschlafen: iPhone-Lautstärke eher niedrig einstellen.</div>
-</main>
+button{width:100%;border:0;border-radius:18px;padding:19px;font-size:20px;font-weight:750;background:#d9e6ee;color:#071018;margin:5px 0 12px}
+button.stop{background:#293746;color:#eef3f7}.status{min-height:58px;margin-top:16px;color:#9fb0bd;font-size:14px;line-height:1.5}
+.small{font-size:12px;color:#71828e;line-height:1.55;margin-top:22px}
+</style></head><body><main>
+<h1>🚆 Nachtzug</h1><div class="sub">Jede Nacht eine andere Fahrt.</div>
+<div class="card"><button id="start">NACHTFAHRT STARTEN</button><button id="stop" class="stop" hidden>FAHRT BEENDEN</button>
+<div id="status" class="status">Eine ruhige, durchgehende Fahrt. Lautstärke regelst du am iPhone.</div></div>
+<div class="small">Echte Zugaufnahme · keine künstlichen Schienengeräusche · keine hörbaren Schnittpausen.</div>
 <script>
-const tracks=[
- {u:"TRNInt_Car%20micheline%20(ID%200212)_BigSoundBank.com.wav",name:"Car Micheline",w:1}
-];
-const A=[new Audio(),new Audio()], gains=[0,0];
-A.forEach(a=>{a.preload="auto";a.playsInline=true;a.crossOrigin="anonymous"});
-let running=false,active=0,timer=null,fadeTimer=null,history=[],generation=0;
-const vol=document.querySelector("#vol"),mood=document.querySelector("#mood"),status=document.querySelector("#status");
-function master(){return (+vol.value/100)*0.72}
-function choose(){
- let pool=tracks.flatMap((t,i)=>Array(t.w).fill(i)).filter(i=>!history.slice(-2).includes(i));
- if(!pool.length)pool=tracks.map((_,i)=>i);
- let i=pool[Math.floor(Math.random()*pool.length)];history.push(i);return tracks[i];
+const FILE="TRNInt_Car%20micheline%20(ID%200212)_BigSoundBank.com.wav";
+const a=[new Audio(),new Audio()];
+a.forEach(x=>{x.preload="auto";x.playsInline=true;x.src=FILE});
+let running=false, active=0, timer=0, fade=0, generation=0;
+const status=document.querySelector("#status"), start=document.querySelector("#start"), stop=document.querySelector("#stop");
+function waitMeta(x){return new Promise((res,rej)=>{if(x.readyState>=1)return res();let to=setTimeout(()=>rej(Error("timeout")),10000);x.addEventListener("loadedmetadata",()=>{clearTimeout(to);res()},{once:true});x.addEventListener("error",()=>{clearTimeout(to);rej(Error("audio"))},{once:true})})}
+function range(d,avoid=-999){
+ const margin=Math.min(12,d*.08), min=margin, max=Math.max(min+1,d-margin-55);
+ let p=min+Math.random()*Math.max(1,max-min);
+ for(let n=0;n<8 && Math.abs(p-avoid)<35;n++)p=min+Math.random()*Math.max(1,max-min);
+ return p;
 }
-function setGain(i,g){gains[i]=Math.max(0,Math.min(1,g));A[i].volume=gains[i]*master()}
-function randomSegment(a){
- let d=isFinite(a.duration)?a.duration:80;
- let edge=Math.min(10,d*.12), usable=Math.max(5,d-edge*2);
- let start=edge+Math.random()*Math.max(1,usable*.72);
- let base=30+Math.random()*42;
- let intensity=+mood.value/100;
- let len=Math.min(d-start-edge,base*(.8+intensity*.35));
- return {start,len:Math.max(15,len)};
+async function prime(){
+ a.forEach(x=>{x.load()}); await Promise.all(a.map(waitMeta));
 }
-async function loadInto(i,t){
- const a=A[i]; a.pause(); a.src=t.u; a.load();
- await new Promise((res,rej)=>{let done=false;const ok=()=>{if(done)return;done=true;cleanup();res()};const bad=()=>{if(done)return;done=true;cleanup();rej()};const cleanup=()=>{a.removeEventListener("loadedmetadata",ok);a.removeEventListener("error",bad)};a.addEventListener("loadedmetadata",ok);a.addEventListener("error",bad);setTimeout(ok,6000)});
- let s=randomSegment(a); try{a.currentTime=s.start}catch(e){}
- a.playbackRate=.985+Math.random()*.03;
- return s;
+async function playAt(i,pos,volume){
+ const x=a[i]; x.pause(); x.currentTime=Math.max(0,Math.min(pos,x.duration-2)); x.playbackRate=1; x.volume=volume;
+ await x.play();
 }
-async function beginPiece(first=false,mygen=generation){
- if(!running||mygen!==generation)return;
- const next=first?active:1-active, t=choose();
+function schedule(pos){
+ if(!running)return;
+ // Crossfade begins long before the source segment ends. Both copies are already buffered.
+ const hold=48+Math.random()*34;
+ timer=setTimeout(()=>transition(pos),hold*1000);
+}
+async function transition(oldPos){
+ if(!running)return;
+ const my=++generation, next=1-active, old=active, d=a[old].duration;
+ const np=range(d,oldPos);
  try{
-   let seg=await loadInto(next,t); if(!running||mygen!==generation)return;
-   setGain(next,first?1:0); await A[next].play();
-   status.textContent="Nachtfahrt läuft · "+t.name+" · die Strecke verändert sich unauffällig weiter.";
-   if(!first){
-     let old=active,steps=80,k=0,fade=8000+Math.random()*5000;
-     clearInterval(fadeTimer);fadeTimer=setInterval(()=>{k++;let x=k/steps;setGain(next,x);setGain(old,1-x);if(k>=steps){clearInterval(fadeTimer);A[old].pause();active=next}},fade/steps);
-   }
-   let wait=Math.max(12,seg.len-(first?7:11));
-   clearTimeout(timer);timer=setTimeout(()=>beginPiece(false,mygen),wait*1000);
- }catch(e){
-   status.textContent="Eine Aufnahme konnte nicht geladen werden – ich probiere automatisch die nächste.";
-   clearTimeout(timer);timer=setTimeout(()=>beginPiece(false,mygen),1500);
- }
+   await playAt(next,np,0);
+   if(!running||my!==generation)return;
+   const ms=18000+Math.random()*8000, steps=120; let k=0;
+   clearInterval(fade);
+   fade=setInterval(()=>{
+     if(!running||my!==generation){clearInterval(fade);return}
+     k++; let t=k/steps;
+     // equal-power crossfade: avoids the dip/silence of a linear fade
+     a[old].volume=Math.cos(t*Math.PI/2)*0.72;
+     a[next].volume=Math.sin(t*Math.PI/2)*0.72;
+     if(k>=steps){
+       clearInterval(fade); a[old].pause(); a[old].volume=0; active=next;
+       status.textContent="Nachtfahrt läuft · die Strecke verändert sich langsam weiter.";
+       schedule(np);
+     }
+   },ms/steps);
+ }catch(e){status.textContent="Die Zugaufnahme konnte nicht gestartet werden."; running=false; start.hidden=false;stop.hidden=true}
 }
-async function startRide(){
- if(running)return;running=true;generation++;history=[];active=0;
- document.querySelector("#start").hidden=true;document.querySelector("#stop").hidden=false;
- status.textContent="Die Nachtfahrt wird zusammengestellt …";
- await beginPiece(true,generation);
+async function go(){
+ if(running)return;
+ running=true; generation++; start.hidden=true;stop.hidden=false; status.textContent="Nachtfahrt wird vorbereitet …";
+ try{
+   await prime(); const p=range(a[0].duration); active=0;
+   // 0.72 gives headroom; the WAV itself sounded hot on iPhone.
+   await playAt(0,p,0.72); a[1].volume=0;
+   status.textContent="Nachtfahrt läuft · durchgehend und ohne künstliche Effekte.";
+   schedule(p);
+ }catch(e){running=false;start.hidden=false;stop.hidden=true;status.textContent="Die Zugaufnahme konnte nicht geladen werden."}
 }
-function stopRide(){
- running=false;generation++;clearTimeout(timer);clearInterval(fadeTimer);A.forEach(a=>{a.pause();a.removeAttribute("src");a.load()});
- document.querySelector("#start").hidden=false;document.querySelector("#stop").hidden=true;status.textContent="Nachtfahrt beendet.";
+function end(){
+ running=false;generation++;clearTimeout(timer);clearInterval(fade);a.forEach(x=>{x.pause();x.volume=0});
+ start.hidden=false;stop.hidden=true;status.textContent="Nachtfahrt beendet.";
 }
-vol.oninput=()=>{document.querySelector("#vtxt").textContent=vol.value+"%";A.forEach((_,i)=>setGain(i,gains[i]))}
-mood.oninput=()=>{let v=+mood.value;document.querySelector("#mtxt").textContent=v<34?"Sehr ruhig":v<67?"Ruhig":"Lebendiger"}
-document.querySelector("#start").onclick=startRide;document.querySelector("#stop").onclick=stopRide;
-document.addEventListener("visibilitychange",()=>{if(!document.hidden&&running)A[active].play().catch(()=>{})});
-</script></body></html>
+start.onclick=go;stop.onclick=end;
+</script></main></body></html>
