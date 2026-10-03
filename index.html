@@ -3,169 +3,95 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#030506">
+<meta name="theme-color" content="#070b10">
 <title>Nachtzug</title>
 <style>
-*{box-sizing:border-box}html,body{margin:0;min-height:100%;background:#030506;color:#e6ecee;font-family:-apple-system,BlinkMacSystemFont,system-ui,sans-serif;color-scheme:dark}
-main{max-width:520px;margin:auto;padding:42px 22px 40px}
-h1{text-align:center;font-weight:300;letter-spacing:.25em;font-size:30px;margin:0}
-.sub{text-align:center;color:#66747a;font-size:11px;letter-spacing:.16em;margin:7px 0 27px}
-.window{height:150px;border:1px solid #263238;border-radius:22px;background:linear-gradient(#040709,#0a1013);box-shadow:inset 0 0 45px #000;position:relative;overflow:hidden}
-.track{position:absolute;left:0;right:0;bottom:37px;height:1px;background:#263136}
-.light{position:absolute;bottom:51px;width:4px;height:4px;border-radius:50%;background:#d6bd7f;animation:pass 14s linear infinite}
-@keyframes pass{from{left:105%}to{left:-5%}}
-#status{text-align:center;color:#87949a;font-size:13px;min-height:52px;padding:18px 4px 8px}
-button{width:100%;border:0;border-radius:16px;padding:16px;font-size:17px;font-weight:650;margin:6px 0}
-#start{background:#e2e9eb;color:#101315}
-#test{background:#182126;color:#d5dfe2;border:1px solid #334148}
-.panel{margin-top:14px;padding:17px;background:#0b1013;border:1px solid #20292e;border-radius:18px}
-.row{margin-bottom:18px}.row:last-child{margin-bottom:3px}
-.label{display:flex;justify-content:space-between;color:#c0c9cd;font-size:13px;margin-bottom:8px}.v{color:#718087}
-input{width:100%;accent-color:#aab8be}
-.note{text-align:center;color:#56636a;font-size:11px;line-height:1.5;margin-top:17px}
+:root{color-scheme:dark}*{box-sizing:border-box}body{margin:0;min-height:100vh;background:radial-gradient(circle at 50% 20%,#182331,#070b10 58%);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#eef3f7;display:flex;justify-content:center}
+main{width:min(680px,100%);padding:calc(34px + env(safe-area-inset-top)) 22px calc(32px + env(safe-area-inset-bottom));text-align:center}
+h1{font-size:42px;margin:12px 0 5px;letter-spacing:.02em} .sub{opacity:.65;margin-bottom:34px}
+.card{background:#101821cc;border:1px solid #263444;border-radius:24px;padding:24px;box-shadow:0 18px 60px #0008}
+button{width:100%;border:0;border-radius:18px;padding:18px;font-size:20px;font-weight:700;background:#d9e6ee;color:#071018;margin:6px 0 18px}
+button.stop{background:#263442;color:#eef3f7}.row{text-align:left;margin:19px 0}.row label{display:flex;justify-content:space-between;font-size:15px;margin-bottom:8px;color:#cdd7de}
+input[type=range]{width:100%}.status{min-height:48px;font-size:14px;line-height:1.45;color:#9fb0bd;margin-top:12px}
+.small{font-size:12px;color:#758692;line-height:1.5;margin-top:22px}
 </style>
 </head>
 <body><main>
-<h1>NACHTZUG</h1><div class="sub">RÄDER · SCHIENEN · NACHT</div>
-<div class="window"><div class="track"></div><i class="light"></i></div>
-<div id="status">Zuerst „KLACK TESTEN“ drücken.</div>
-<button id="test">KLACK TESTEN</button>
-<button id="start">Fahrt beginnen</button>
-
-<div class="panel">
-<div class="row"><div class="label"><span>Schienenstöße</span><span class="v" id="kv">kräftig</span></div><input id="klack" type="range" min="0" max="100" value="82"></div>
-<div class="row"><div class="label"><span>Fahrtempo</span><span class="v" id="tv">Nachtzug</span></div><input id="tempo" type="range" min="0" max="100" value="46"></div>
-<div class="row"><div class="label"><span>Rollen</span><span class="v">leise</span></div><input id="roll" type="range" min="0" max="100" value="26"></div>
+<h1>🚆 Nachtzug</h1>
+<div class="sub">Jede Nacht eine andere Fahrt.</div>
+<div class="card">
+<button id="start">NACHTFAHRT STARTEN</button>
+<button id="stop" class="stop" hidden>FAHRT BEENDEN</button>
+<div class="row"><label><span>Lautstärke</span><span id="vtxt">55%</span></label><input id="vol" type="range" min="0" max="100" value="55"></div>
+<div class="row"><label><span>Schienen &amp; Wagen</span><span id="mtxt">Ruhig</span></label><input id="mood" type="range" min="0" max="100" value="45"></div>
+<div id="status" class="status">Tippe auf Start. Die Fahrt wird bei jedem Start neu zusammengestellt.</div>
 </div>
-<div class="note">Keine Audiodatei und kein kompletter Loop.<br>Die Radstöße werden einzeln in Echtzeit erzeugt.</div>
+<div class="small">Echte CC0-Zugaufnahmen · keine Ansagen · keine künstlichen Klack-Synthesizer.<br>Fürs Einschlafen: iPhone-Lautstärke eher niedrig einstellen.</div>
 </main>
 <script>
-let ac=null, master=null, running=false, beatTimer=null, variationTimer=null, rollNodes=[];
-
-const $=id=>document.getElementById(id);
-
-async function ensureAudio(){
- if(!ac || ac.state==="closed"){
-   ac=new (window.AudioContext||window.webkitAudioContext)();
-   master=ac.createGain();
-   master.gain.value=.82;
-   master.connect(ac.destination);
+const tracks=[
+ {u:"https://bigsoundbank.com/UPLOAD/mp3/2727.mp3",name:"Wagen",w:5},
+ {u:"https://bigsoundbank.com/UPLOAD/mp3/0635.mp3",name:"Reisezug",w:4},
+ {u:"https://bigsoundbank.com/UPLOAD/mp3/0636.mp3",name:"Tunnel",w:2},
+ {u:"https://bigsoundbank.com/UPLOAD/mp3/0212.mp3",name:"Alter Wagen",w:3}
+];
+const A=[new Audio(),new Audio()], gains=[0,0];
+A.forEach(a=>{a.preload="auto";a.playsInline=true;a.crossOrigin="anonymous"});
+let running=false,active=0,timer=null,fadeTimer=null,history=[],generation=0;
+const vol=document.querySelector("#vol"),mood=document.querySelector("#mood"),status=document.querySelector("#status");
+function master(){return (+vol.value/100)*0.72}
+function choose(){
+ let pool=tracks.flatMap((t,i)=>Array(t.w).fill(i)).filter(i=>!history.slice(-2).includes(i));
+ if(!pool.length)pool=tracks.map((_,i)=>i);
+ let i=pool[Math.floor(Math.random()*pool.length)];history.push(i);return tracks[i];
+}
+function setGain(i,g){gains[i]=Math.max(0,Math.min(1,g));A[i].volume=gains[i]*master()}
+function randomSegment(a){
+ let d=isFinite(a.duration)?a.duration:80;
+ let edge=Math.min(10,d*.12), usable=Math.max(5,d-edge*2);
+ let start=edge+Math.random()*Math.max(1,usable*.72);
+ let base=30+Math.random()*42;
+ let intensity=+mood.value/100;
+ let len=Math.min(d-start-edge,base*(.8+intensity*.35));
+ return {start,len:Math.max(15,len)};
+}
+async function loadInto(i,t){
+ const a=A[i]; a.pause(); a.src=t.u; a.load();
+ await new Promise((res,rej)=>{let done=false;const ok=()=>{if(done)return;done=true;cleanup();res()};const bad=()=>{if(done)return;done=true;cleanup();rej()};const cleanup=()=>{a.removeEventListener("loadedmetadata",ok);a.removeEventListener("error",bad)};a.addEventListener("loadedmetadata",ok);a.addEventListener("error",bad);setTimeout(ok,6000)});
+ let s=randomSegment(a); try{a.currentTime=s.start}catch(e){}
+ a.playbackRate=.985+Math.random()*.03;
+ return s;
+}
+async function beginPiece(first=false,mygen=generation){
+ if(!running||mygen!==generation)return;
+ const next=first?active:1-active, t=choose();
+ try{
+   let seg=await loadInto(next,t); if(!running||mygen!==generation)return;
+   setGain(next,first?1:0); await A[next].play();
+   status.textContent="Nachtfahrt läuft · "+t.name+" · die Strecke verändert sich unauffällig weiter.";
+   if(!first){
+     let old=active,steps=80,k=0,fade=8000+Math.random()*5000;
+     clearInterval(fadeTimer);fadeTimer=setInterval(()=>{k++;let x=k/steps;setGain(next,x);setGain(old,1-x);if(k>=steps){clearInterval(fadeTimer);A[old].pause();active=next}},fade/steps);
+   }
+   let wait=Math.max(12,seg.len-(first?7:11));
+   clearTimeout(timer);timer=setTimeout(()=>beginPiece(false,mygen),wait*1000);
+ }catch(e){
+   status.textContent="Eine Aufnahme konnte nicht geladen werden – ich probiere automatisch die nächste.";
+   clearTimeout(timer);timer=setTimeout(()=>beginPiece(false,mygen),1500);
  }
- if(ac.state!=="running") await ac.resume();
 }
-
-function thump(t, strength=1, pan=0){
- // BODY: a short low wheel/rail impact, deliberately tonal so iPhone speakers reproduce it.
- const o=ac.createOscillator(), g=ac.createGain();
- o.type="sine";
- o.frequency.setValueAtTime(165,t);
- o.frequency.exponentialRampToValueAtTime(72,t+.095);
- let a=(.075 + (+$("klack").value/100)*.16)*strength;
- g.gain.setValueAtTime(.0001,t);
- g.gain.exponentialRampToValueAtTime(Math.max(.001,a),t+.006);
- g.gain.exponentialRampToValueAtTime(.0001,t+.12);
- o.connect(g).connect(master); o.start(t); o.stop(t+.13);
-
- // CLICK: mechanical flange/joint snap, generated from a tiny oscillator burst (not noise).
- const c=ac.createOscillator(), cg=ac.createGain();
- c.type="triangle";
- c.frequency.setValueAtTime(820+Math.random()*220,t);
- c.frequency.exponentialRampToValueAtTime(330,t+.035);
- cg.gain.setValueAtTime(.0001,t);
- cg.gain.exponentialRampToValueAtTime(.10*strength,t+.002);
- cg.gain.exponentialRampToValueAtTime(.0001,t+.055);
- c.connect(cg).connect(master); c.start(t); c.stop(t+.06);
+async function startRide(){
+ if(running)return;running=true;generation++;history=[];active=0;
+ document.querySelector("#start").hidden=true;document.querySelector("#stop").hidden=false;
+ status.textContent="Die Nachtfahrt wird zusammengestellt …";
+ await beginPiece(true,generation);
 }
-
-function bogie(t, strength=1){
- // Two axles: the characteristic "ka-DACK".
- thump(t,.72*strength);
- thump(t+.118+Math.random()*.012,1.0*strength);
+function stopRide(){
+ running=false;generation++;clearTimeout(timer);clearInterval(fadeTimer);A.forEach(a=>{a.pause();a.removeAttribute("src");a.load()});
+ document.querySelector("#start").hidden=false;document.querySelector("#stop").hidden=true;status.textContent="Nachtfahrt beendet.";
 }
-
-async function testKlack(){
- await ensureAudio();
- $("status").textContent="Jetzt müssen vier deutliche Radstöße zu hören sein.";
- let t=ac.currentTime+.08;
- bogie(t,1.25);
- bogie(t+.52,1.15);
-}
-
-function startRollingBed(){
- // Low tonal carriage vibration. No broadband hiss.
- const freqs=[43,57,76];
- freqs.forEach((f,i)=>{
-   const o=ac.createOscillator(), g=ac.createGain(), l=ac.createOscillator(), lg=ac.createGain();
-   o.type=i===2?"triangle":"sine"; o.frequency.value=f;
-   g.gain.value=(i===0?.018:i===1?.011:.004)*(+$("roll").value/26);
-   l.frequency.value=.07+i*.031; lg.gain.value=.003;
-   l.connect(lg).connect(g.gain); o.connect(g).connect(master);
-   o.start(); l.start(); rollNodes.push({o,g,l,lg});
- });
-}
-
-function stopRollingBed(){
- rollNodes.forEach(n=>{try{n.o.stop();n.l.stop()}catch(e){}});
- rollNodes=[];
-}
-
-function scheduleBeat(){
- if(!running)return;
- const speed=+$("tempo").value;
- // About 0.43–0.92 s between bogie groups, with small natural drift.
- const base=.94-speed*.0060;
- const interval=Math.max(.34,base)*(0.91+Math.random()*.18);
- const t=ac.currentTime+.025;
-
- bogie(t,.86+Math.random()*.16);
-
- // Sometimes the rear bogie is heard as a softer second pair.
- if(Math.random()<.48){
-   const gap=.30+Math.random()*.07;
-   bogie(t+gap,.48+Math.random()*.18);
- }
- beatTimer=setTimeout(scheduleBeat,interval*1000);
-}
-
-function scheduleVariation(){
- if(!running)return;
- const delay=18000+Math.random()*30000;
- variationTimer=setTimeout(()=>{
-   if(!running)return;
-   const t=ac.currentTime+.05;
-   // A turnout: several irregular, stronger rail impacts.
-   [0,.13,.29,.43,.68,.83].forEach((d,i)=>thump(t+d,(i===1||i===4)?1.55:1.12));
-   $("status").textContent="Weichen rumpeln unter dem Wagen …";
-   setTimeout(()=>{if(running)$("status").textContent="Der Nachtzug rollt weiter …"},2600);
-   scheduleVariation();
- },delay);
-}
-
-async function toggle(){
- if(running){
-   running=false; clearTimeout(beatTimer);clearTimeout(variationTimer);stopRollingBed();
-   $("start").textContent="Fahrt beginnen";$("status").textContent="Der Zug steht.";
-   return;
- }
- await ensureAudio();
- running=true; startRollingBed(); scheduleBeat(); scheduleVariation();
- $("start").textContent="Fahrt beenden";
- $("status").textContent="Räder auf den Schienen … ka-dack … ka-dack …";
-}
-
-$("test").onclick=testKlack;
-$("start").onclick=toggle;
-
-$("klack").oninput=e=>{
- const v=+e.target.value;$("kv").textContent=v<30?"leise":v<65?"mittel":"kräftig";
-};
-$("tempo").oninput=e=>{
- const v=+e.target.value;$("tv").textContent=v<30?"langsam":v<70?"Nachtzug":"schnell";
-};
-$("roll").oninput=e=>{
- if(rollNodes.length){
-   const scale=+e.target.value/26;
-   rollNodes.forEach((n,i)=>n.g.gain.value=(i===0?.018:i===1?.011:.004)*scale);
- }
-};
+vol.oninput=()=>{document.querySelector("#vtxt").textContent=vol.value+"%";A.forEach((_,i)=>setGain(i,gains[i]))}
+mood.oninput=()=>{let v=+mood.value;document.querySelector("#mtxt").textContent=v<34?"Sehr ruhig":v<67?"Ruhig":"Lebendiger"}
+document.querySelector("#start").onclick=startRide;document.querySelector("#stop").onclick=stopRide;
+document.addEventListener("visibilitychange",()=>{if(!document.hidden&&running)A[active].play().catch(()=>{})});
 </script></body></html>
